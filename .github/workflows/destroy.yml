@@ -45,14 +45,21 @@ jobs:
         with:
           terraform_version: 1.9.5
 
-      - name: Terraform Init
-        run: terraform init
+      - name: Terraform Init (Reconfigure Backend)
+        run: |
+          terraform init -reconfigure \
+            -backend-config="bucket=github-oidc-bucket-terraform" \
+            -backend-config="key=aws-vpc/${{ env.ENVIRONMENT }}/terraform.tfstate" \
+            -backend-config="region=${{ env.AWS_REGION }}" \
+            -backend-config="dynamodb_table=terraform-lock-table" \
+            -backend-config="encrypt=true"
+
+      - name: Terraform Workspace
+        run: |
+          terraform workspace select ${{ env.ENVIRONMENT }} || terraform workspace new ${{ env.ENVIRONMENT }}
 
       - name: Terraform Validate
         run: terraform validate
-
-      - name: Terraform Plan Destroy
-        run: terraform plan -destroy -no-color -input=false -var-file="environments/${{ env.ENVIRONMENT }}/terraform.tfvars"
 
       - name: Terraform Destroy Confirmation
         run: |

@@ -1,11 +1,11 @@
 name: Terraform VPC Deployment
 
 on:
-  push:
-    branches:
-      - main
-      - dev
-      - stage
+  # push:
+  #   branches:
+  #     - main
+  #     - dev
+  #     - stage 
   workflow_dispatch:
     inputs:
       environment:
