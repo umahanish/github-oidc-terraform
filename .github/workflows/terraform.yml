@@ -49,14 +49,15 @@ jobs:
         with:
           terraform_version: 1.9.5
 
-      - name: Terraform Init
+      - name: Terraform Init (Reconfigure Backend)
         run: |
           terraform init -reconfigure \
-            -backend-config="region=${{ env.AWS_REGION }}" \
-            -backend-config="github-oidc-bucket-terraform" \
+            -backend-config="bucket=github-oidc-bucket-terraform" \
             -backend-config="key=aws-vpc/${{ env.ENVIRONMENT }}/terraform.tfstate" \
+            -backend-config="region=${{ env.AWS_REGION }}" \
             -backend-config="dynamodb_table=terraform-lock-table" \
             -backend-config="encrypt=true"
+
 
 
       - name: Terraform Workspace
