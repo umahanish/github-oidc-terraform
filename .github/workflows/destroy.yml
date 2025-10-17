@@ -26,7 +26,9 @@ jobs:
       TF_LOG: INFO
       AWS_REGION: ${{ secrets.AWS_REGION }}
       ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-      ENVIRONMENT: ${{ github.event.inputs.environment }}
+      AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
+      DYNAMODB_TABLE: ${{ secrets.DYNAMODB_TABLE }}
+      ENVIRONMENT: ${{ github.event.inputs.environment || 'dev' }}
 
     steps:
       - name: Checkout repository
@@ -48,10 +50,10 @@ jobs:
       - name: Terraform Init (Reconfigure Backend)
         run: |
           terraform init -reconfigure \
-            -backend-config="bucket=github-oidc-bucket-terraform" \
-            -backend-config="key=aws-vpc/${{ env.ENVIRONMENT }}/terraform.tfstate" \
-            -backend-config="region=${{ env.AWS_REGION }}" \
-            -backend-config="dynamodb_table=terraform-lock-table" \
+            -backend-config="bucket=$AWS_S3_BUCKET" \
+            -backend-config="key=aws-vpc/${ENVIRONMENT}/terraform.tfstate" \
+            -backend-config="region=$AWS_REGION" \
+            -backend-config="dynamodb_table=$DYNAMODB_TABLE" \
             -backend-config="encrypt=true"
 
       - name: Terraform Workspace
