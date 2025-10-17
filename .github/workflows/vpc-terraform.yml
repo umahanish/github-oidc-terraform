@@ -38,7 +38,6 @@ jobs:
 
       - name: Terraform Init (Reconfigure Backend)
         run: |
-          echo "Initializing Terraform backend..."
           terraform init -reconfigure \
             -backend-config="bucket=${{ env.AWS_S3_BUCKET }}" \
             -backend-config="key=${{ github.event.inputs.environment }}/terraform.tfstate" \
@@ -46,16 +45,8 @@ jobs:
             -backend-config="dynamodb_table=${{ env.DYNAMODB_TABLE }}" \
             -backend-config="encrypt=true"
 
-      - name: Verify Terraform Init
-        run: |
-          echo "Contents of .terraform directory:"
-          ls -R .terraform || echo "No .terraform folder found!"
-
       - name: Terraform Plan
-        run: |
-          terraform plan -input=false \
-            -var="environment=${{ github.event.inputs.environment }}" \
-            -out=tfplan
+        run: terraform plan -input=false -var="environment=${{ github.event.inputs.environment }}" -out=tfplan
 
       - name: Terraform Apply
         run: terraform apply -auto-approve -input=false tfplan
