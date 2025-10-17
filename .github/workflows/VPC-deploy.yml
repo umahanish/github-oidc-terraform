@@ -16,7 +16,7 @@ permissions:
 
 env:
   AWS_REGION: ${{ secrets.AWS_REGION }}
-  ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+  ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE }}
   AWS_S3_BUCKET: ${{ secrets.AWS_BUCKET_NAME }}
   DYNAMODB_TABLE: ${{ secrets.DYNAMODB_TABLE }}
 
