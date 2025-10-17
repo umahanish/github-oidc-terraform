@@ -1,66 +1,55 @@
-name: Terraform VPC Deployment
+name: Terraform VPC Workflow
 
 on:
-  workflow_dispatch:
-    inputs:
-      environment:
-        description: "Select environment to deploy (dev, stage, main)"
-        required: true
-        default: "dev"
-        type: choice
-        options:
-          - dev
-          - stage
-          - main
-
-permissions:
-  id-token: write
-  contents: read
+  push:
+    paths:
+      - 'vpc/**'
+      - 'environments/**'
 
 jobs:
   terraform-vpc:
+    name: Terraform VPC
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
 
     env:
-      TF_LOG: INFO
-      AWS_REGION: ${{ secrets.AWS_REGION }}
-      ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-      AWS_S3_BUCKET: ${{ secrets.AWS_BUCKET_NAME }}
-      DYNAMODB_TABLE: ${{ secrets.DYNAMODB_TABLE }}
-      ENVIRONMENT: ${{ github.event.inputs.environment || 'dev' }}
+      TF_BUCKET: github-oidc-bucket-terraform
+      TF_STATE_KEY: vpc/dev/terraform.tfstate
+      AWS_REGION: eu-west-2   # default region, can also pass via tfvars
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Configure AWS Credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ env.ROLE_TO_ASSUME }}
-          aws-region: ${{ env.AWS_REGION }}
-          role-session-name: github-actions-terraform-vpc
+      - name: Checkout code
+        uses: actions/checkout@v3
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.9.5
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Terraform Init (VPC)
         run: |
-          terraform init -reconfigure \
-            -backend-config="bucket=${{ env.AWS_S3_BUCKET }}" \
-            -backend-config="key=vpc/${{ env.ENVIRONMENT }}/terraform.tfstate" \
-            -backend-config="region=${{ env.AWS_REGION }}" \
-            -backend-config="dynamodb_table=${{ env.DYNAMODB_TABLE }}" \
-            -backend-config="encrypt=true"
+          terraform -chdir=vpc init \
+            -backend-config="bucket=${TF_BUCKET}" \
+            -backend-config="key=${TF_STATE_KEY}" \
+            -backend-config="region=${AWS_REGION}"
 
-      - name: Terraform Validate (VPC)
-        run: terraform validate
-
-      - name: Terraform Plan
-        run: terraform plan -input=false -var-file="environments/${{ env.ENVIRONMENT }}/terraform.tfvars" -out=tfplan
-
+      - name: Terraform Plan (VPC)
+        run: |
+          terraform -chdir=vpc plan \
+            -input=false \
+            -var-file="environments/dev/terraform.tfvars" \
+            -out=tfplan
 
       - name: Terraform Apply (VPC)
-        if: github.event_name == 'workflow_dispatch'
-        run: terraform apply -auto-approve -input=false tfplan
+        if: github.ref == 'refs/heads/main'
+        run: |
+          terraform -chdir=vpc apply -input=false tfplan
