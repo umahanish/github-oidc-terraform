@@ -1,4 +1,4 @@
-name: Terraform Deploy
+name: VPC Deploy
 
 on:
   workflow_dispatch:
@@ -7,10 +7,6 @@ on:
         description: 'Environment to deploy (dev/stage/prod)'
         required: true
         default: 'dev'
-      tf_directory:
-        description: 'Path to Terraform configuration directory (default is root)'
-        required: false
-        default: '.'
 
 env:
   AWS_REGION: ${{ secrets.AWS_REGION }}
@@ -19,52 +15,48 @@ env:
   DYNAMODB_TABLE: ${{ secrets.DYNAMODB_TABLE }}
 
 jobs:
-  terraform-deploy:
+  terraform-vpc:
     runs-on: ubuntu-latest
 
     steps:
+      # Step 1: Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # Step 2: Configure AWS credentials with OIDC
       - name: Configure AWS Credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ env.ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
-          role-session-name: github-actions-terraform
+          role-session-name: github-actions-terraform-vpc
           audience: sts.amazonaws.com
+          id-token: yes   # Needed for OIDC
 
+      # Step 3: Setup Terraform
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.9.5
 
-      - name: Set Terraform directory
+      # Step 4: Terraform Init (with backend reconfigure)
+      - name: Terraform Init
         run: |
-          echo "TF_DIR=${{ github.event.inputs.tf_directory }}" >> $GITHUB_ENV
-
-      - name: Verify Terraform files
-        run: |
-          echo "Listing Terraform files in $TF_DIR"
-          ls -1 $TF_DIR/*.tf || echo "⚠️ No Terraform files found!"
-
-      - name: Terraform Init (Reconfigure Backend)
-        run: |
+          echo "Initializing Terraform backend..."
           terraform init -reconfigure \
             -backend-config="bucket=${{ env.AWS_S3_BUCKET }}" \
             -backend-config="key=${{ github.event.inputs.environment }}/terraform.tfstate" \
             -backend-config="region=${{ env.AWS_REGION }}" \
             -backend-config="dynamodb_table=${{ env.DYNAMODB_TABLE }}" \
             -backend-config="encrypt=true"
-        working-directory: ${{ github.event.inputs.tf_directory }}
 
+      # Step 5: Terraform Plan
       - name: Terraform Plan
         run: |
           terraform plan -input=false \
-            -var-file="environments/${{ github.event.inputs.environment }}/terraform.tfvars" \
+            -var="environment=${{ github.event.inputs.environment }}" \
             -out=tfplan
-        working-directory: ${{ github.event.inputs.tf_directory }}
 
+      # Step 6: Terraform Apply
       - name: Terraform Apply
         run: terraform apply -auto-approve -input=false tfplan
-        working-directory: ${{ github.event.inputs.tf_directory }}
