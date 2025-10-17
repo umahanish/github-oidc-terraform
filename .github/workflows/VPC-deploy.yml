@@ -35,21 +35,26 @@ jobs:
         with:
           terraform_version: 1.9.5
 
+      - name: Debug Backend Variables
+        working-directory: ./terraform/vpc
+        run: |
+          # Trim variables to remove accidental spaces
+          export CLEAN_BUCKET="$(echo '${{ env.AWS_S3_BUCKET }}' | xargs)"
+          export CLEAN_DYNAMODB="$(echo '${{ env.DYNAMODB_TABLE }}' | xargs)"
+          export CLEAN_REGION="$(echo '${{ env.AWS_REGION }}' | xargs)"
+          echo "Bucket: '$CLEAN_BUCKET'"
+          echo "DynamoDB Table: '$CLEAN_DYNAMODB'"
+          echo "Region: '$CLEAN_REGION'"
+
       - name: Terraform Init (Reconfigure Backend)
         working-directory: ./terraform/vpc
         run: |
           terraform init -reconfigure \
-            -backend-config="bucket=${{ env.AWS_S3_BUCKET }}" \
+            -backend-config="bucket=$CLEAN_BUCKET" \
             -backend-config="key=vpc/${{ github.event.inputs.environment }}/terraform.tfstate" \
-            -backend-config="region=${{ env.AWS_REGION }}" \
-            -backend-config="dynamodb_table=${{ env.DYNAMODB_TABLE }}" \
+            -backend-config="region=$CLEAN_REGION" \
+            -backend-config="dynamodb_table=$CLEAN_DYNAMODB" \
             -backend-config="encrypt=true"
-
-      - name: Verify Terraform Init
-        working-directory: ./terraform/vpc
-        run: |
-          echo "Contents of .terraform folder:"
-          ls -R .terraform || echo "⚠️ .terraform folder not found!"
 
       - name: Terraform Plan
         working-directory: ./terraform/vpc
