@@ -1,5 +1,6 @@
 name: VPC Deploy
 
+# Trigger manually
 on:
   workflow_dispatch:
     inputs:
@@ -7,6 +8,11 @@ on:
         description: 'Environment to deploy (dev/stage/prod)'
         required: true
         default: 'dev'
+
+# Required permissions for OIDC
+permissions:
+  id-token: write
+  contents: read
 
 env:
   AWS_REGION: ${{ secrets.AWS_REGION }}
@@ -19,9 +25,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1️⃣ Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # 2️⃣ Configure AWS credentials using OIDC
       - name: Configure AWS Credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -30,32 +38,31 @@ jobs:
           role-session-name: github-actions-terraform-vpc
           audience: sts.amazonaws.com
 
+      # 3️⃣ Setup Terraform
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.9.5
 
-      - name: Debug Backend Variables
-        working-directory: ./terraform/vpc
-        run: |
-          # Trim variables to remove accidental spaces
-          export CLEAN_BUCKET="$(echo '${{ env.AWS_S3_BUCKET }}' | xargs)"
-          export CLEAN_DYNAMODB="$(echo '${{ env.DYNAMODB_TABLE }}' | xargs)"
-          export CLEAN_REGION="$(echo '${{ env.AWS_REGION }}' | xargs)"
-          echo "Bucket: '$CLEAN_BUCKET'"
-          echo "DynamoDB Table: '$CLEAN_DYNAMODB'"
-          echo "Region: '$CLEAN_REGION'"
-
+      # 4️⃣ Initialize Terraform backend
       - name: Terraform Init (Reconfigure Backend)
         working-directory: ./terraform/vpc
         run: |
           terraform init -reconfigure \
-            -backend-config="bucket=$CLEAN_BUCKET" \
+            -backend-config="bucket=${{ env.AWS_S3_BUCKET }}" \
             -backend-config="key=vpc/${{ github.event.inputs.environment }}/terraform.tfstate" \
-            -backend-config="region=$CLEAN_REGION" \
-            -backend-config="dynamodb_table=$CLEAN_DYNAMODB" \
+            -backend-config="region=${{ env.AWS_REGION }}" \
+            -backend-config="dynamodb_table=${{ env.DYNAMODB_TABLE }}" \
             -backend-config="encrypt=true"
 
+      # 5️⃣ Verify backend initialized
+      - name: Verify Terraform Init
+        working-directory: ./terraform/vpc
+        run: |
+          echo "Contents of .terraform after init:"
+          ls -R .terraform || echo "No .terraform folder found!"
+
+      # 6️⃣ Terraform Plan
       - name: Terraform Plan
         working-directory: ./terraform/vpc
         run: |
@@ -63,6 +70,7 @@ jobs:
             -var-file="environments/${{ github.event.inputs.environment }}/terraform.tfvars" \
             -out=tfplan
 
+      # 7️⃣ Terraform Apply
       - name: Terraform Apply
         working-directory: ./terraform/vpc
         run: terraform apply -auto-approve -input=false tfplan
