@@ -8,15 +8,15 @@ on:
         required: true
         default: 'dev'
 
-env:
-  AWS_REGION: ${{ secrets.AWS_REGION }}
-  ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-  AWS_S3_BUCKET: ${{ secrets.AWS_BUCKET_NAME }}
-  DYNAMODB_TABLE: ${{ secrets.DYNAMODB_TABLE }}
-
 jobs:
   terraform-vpc:
     runs-on: ubuntu-latest
+
+    env:
+      ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_S3_BUCKET: ${{ secrets.AWS_BUCKET_NAME }}
+      DYNAMODB_TABLE: ${{ secrets.DYNAMODB_TABLE }}
 
     steps:
       - name: Checkout repository
@@ -35,46 +35,31 @@ jobs:
         with:
           terraform_version: 1.9.5
 
-      # -----------------------------
-      # Clean previous Terraform state
-      # -----------------------------
-      - name: Clean Terraform
-        working-directory: ./terraform/vpc
-        run: rm -rf .terraform
-
-      # -----------------------------
-      # Initialize Backend
-      # -----------------------------
       - name: Terraform Init (Reconfigure Backend)
         working-directory: ./terraform/vpc
         run: |
+          # Trim any whitespace from secrets
+          AWS_S3_BUCKET="${AWS_S3_BUCKET//[[:space:]]/}"
+          DYNAMODB_TABLE="${DYNAMODB_TABLE//[[:space:]]/}"
+          AWS_REGION="${AWS_REGION//[[:space:]]/}"
+
+          echo "Using S3 bucket: '$AWS_S3_BUCKET'"
+          echo "Using DynamoDB table: '$DYNAMODB_TABLE'"
+          echo "Using AWS region: '$AWS_REGION'"
+
           terraform init -reconfigure \
-            -backend-config="bucket=${{ env.AWS_S3_BUCKET }}" \
+            -backend-config="bucket=$AWS_S3_BUCKET" \
             -backend-config="key=vpc/${{ github.event.inputs.environment }}/terraform.tfstate" \
-            -backend-config="region=${{ env.AWS_REGION }}" \
-            -backend-config="dynamodb_table=${{ env.DYNAMODB_TABLE }}" \
+            -backend-config="region=$AWS_REGION" \
+            -backend-config="dynamodb_table=$DYNAMODB_TABLE" \
             -backend-config="encrypt=true"
 
-      # -----------------------------
-      # Optional: Verify S3 backend
-      # -----------------------------
-      - name: Verify S3 backend
+      - name: Verify Terraform Init
         working-directory: ./terraform/vpc
         run: |
-          echo "Checking S3 backend state file:"
-          aws s3 ls s3://${{ env.AWS_S3_BUCKET }}/vpc/${{ github.event.inputs.environment }}/terraform.tfstate || echo "⚠️ State file not found"
+          echo "Contents of .terraform after init:"
+          ls -R .terraform || echo "No .terraform folder found!"
 
-      # -----------------------------
-      # Select or create workspace
-      # -----------------------------
-      - name: Terraform Workspace
-        working-directory: ./terraform/vpc
-        run: |
-          terraform workspace select ${{ github.event.inputs.environment }} || terraform workspace new ${{ github.event.inputs.environment }}
-
-      # -----------------------------
-      # Terraform Plan
-      # -----------------------------
       - name: Terraform Plan
         working-directory: ./terraform/vpc
         run: |
@@ -82,9 +67,6 @@ jobs:
             -var-file="environments/${{ github.event.inputs.environment }}/terraform.tfvars" \
             -out=tfplan
 
-      # -----------------------------
-      # Terraform Apply
-      # -----------------------------
       - name: Terraform Apply
         working-directory: ./terraform/vpc
         run: terraform apply -auto-approve -input=false tfplan
