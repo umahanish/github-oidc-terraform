@@ -54,8 +54,8 @@ jobs:
       - name: Terraform Init (Reconfigure Backend)
         run: |
           terraform init -reconfigure \
-            -backend-config="bucket=$AWS_S3_BUCKET" \
-            -backend-config="key=terraform/state/vpc-$ENVIRONMENT.tfstate" \
+            -backend-config="github-oidc-bucket-terraform" \
+            -backend-config="key=aws-vpc/${{ env.ENVIRONMENT }}/terraform.tfstate" \
             -backend-config="region=$AWS_REGION" \
             -backend-config="dynamodb_table=$DYNAMODB_TABLE" \
             -backend-config="encrypt=true"
