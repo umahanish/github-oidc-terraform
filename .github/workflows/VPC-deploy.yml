@@ -33,23 +33,25 @@ jobs:
         with:
           terraform_version: 1.9.5
 
+      - name: Clean Terraform
+        working-directory: ./terraform/vpc
+        run: rm -rf .terraform
+
       - name: Terraform Init
         working-directory: ./terraform/vpc
-        run: terraform init -reconfigure
-
-      - name: Select or Create Workspace
-        working-directory: ./terraform/vpc
         run: |
-          terraform workspace select ${{ github.event.inputs.environment }} || \
-          terraform workspace new ${{ github.event.inputs.environment }}
+          terraform init -reconfigure \
+            -backend-config="bucket=${{ env.AWS_S3_BUCKET }}" \
+            -backend-config="key=vpc/${{ github.event.inputs.environment }}/terraform.tfstate" \
+            -backend-config="region=${{ env.AWS_REGION }}" \
+            -backend-config="dynamodb_table=${{ env.DYNAMODB_TABLE }}" \
+            -backend-config="encrypt=true"
 
       - name: Terraform Plan
         working-directory: ./terraform/vpc
         run: |
-          terraform plan -input=false \
-          -var-file="environments/${{ github.event.inputs.environment }}/terraform.tfvars" \
-          -out=tfplan
+          terraform plan -var-file="environments/${{ github.event.inputs.environment }}/terraform.tfvars" -out=tfplan
 
       - name: Terraform Apply
         working-directory: ./terraform/vpc
-        run: terraform apply -auto-approve -input=false tfplan
+        run: terraform apply -auto-approve tfplan
