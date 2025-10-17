@@ -9,7 +9,7 @@ on:
         required: true
         default: 'dev'
 
-# Required permissions for OIDC
+# Required for OIDC authentication
 permissions:
   id-token: write
   contents: read
@@ -25,11 +25,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout repository
+      # Step 1: Checkout repo
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2️⃣ Configure AWS credentials using OIDC
+      # Step 2: Configure AWS Credentials via OIDC
       - name: Configure AWS Credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -38,13 +38,13 @@ jobs:
           role-session-name: github-actions-terraform-vpc
           audience: sts.amazonaws.com
 
-      # 3️⃣ Setup Terraform
+      # Step 3: Setup Terraform
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.9.5
 
-      # 4️⃣ Initialize Terraform backend
+      # Step 4: Terraform Init with backend reconfiguration
       - name: Terraform Init (Reconfigure Backend)
         working-directory: ./terraform/vpc
         run: |
@@ -55,22 +55,23 @@ jobs:
             -backend-config="dynamodb_table=${{ env.DYNAMODB_TABLE }}" \
             -backend-config="encrypt=true"
 
-      # 5️⃣ Verify backend initialized
+      # Step 5: Verify Terraform backend
       - name: Verify Terraform Init
         working-directory: ./terraform/vpc
         run: |
-          echo "Contents of .terraform after init:"
+          echo "Contents of .terraform folder:"
           ls -R .terraform || echo "No .terraform folder found!"
 
-      # 6️⃣ Terraform Plan
+      # Step 6: Terraform Plan
       - name: Terraform Plan
         working-directory: ./terraform/vpc
         run: |
-          terraform plan -input=false \
+          terraform plan \
+            -input=false \
             -var-file="environments/${{ github.event.inputs.environment }}/terraform.tfvars" \
             -out=tfplan
 
-      # 7️⃣ Terraform Apply
+      # Step 7: Terraform Apply
       - name: Terraform Apply
         working-directory: ./terraform/vpc
         run: terraform apply -auto-approve -input=false tfplan
