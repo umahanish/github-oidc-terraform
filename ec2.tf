@@ -1,7 +1,3 @@
-provider "aws" {
-  region = var.aws_region
-}
-
 # Get existing VPC and Subnets from Terraform state
 data "terraform_remote_state" "vpc" {
   backend = "s3"
