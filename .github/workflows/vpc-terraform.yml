@@ -33,17 +33,23 @@ jobs:
 
       - name: Terraform Init
         run: |
-          terraform -chdir=vpc init \
-            -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
+          - name: Terraform Init (Reconfigure Backend)
+        working-directory: ./terraform/vpc
+        run: |
+          terraform init -reconfigure \
+            -backend-config="bucket=${{ env.AWS_S3_BUCKET }}" \
             -backend-config="key=vpc/${{ github.event.inputs.environment }}/terraform.tfstate" \
-            -backend-config="region=${{ env.AWS_REGION }}"
+            -backend-config="region=${{ env.AWS_REGION }}" \
+            -backend-config="dynamodb_table=${{ env.DYNAMODB_TABLE }}" \
+            -backend-config="encrypt=true"
 
       - name: Terraform Plan
         run: |
-          terraform -chdir=vpc plan \
+          terraform plan \
             -input=false \
             -var-file="environments/${{ github.event.inputs.environment }}/terraform.tfvars" \
             -out=tfplan
+
 
       - name: Terraform Apply
         if: github.ref == 'refs/heads/main'
