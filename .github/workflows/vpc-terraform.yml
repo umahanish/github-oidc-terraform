@@ -29,7 +29,6 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: github-actions-terraform-vpc
           audience: sts.amazonaws.com
-          output-env-credentials: true
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -46,7 +45,10 @@ jobs:
             -backend-config="encrypt=true"
 
       - name: Terraform Plan
-        run: terraform plan -input=false -var="environment=${{ github.event.inputs.environment }}" -out=tfplan
+        run: |
+          terraform plan -input=false \
+            -var="environment=${{ github.event.inputs.environment }}" \
+            -out=tfplan
 
       - name: Terraform Apply
-        run: terraform apply -auto-approve -input=false tfplan
+        run: terraform apply -auto-approve tfplan
