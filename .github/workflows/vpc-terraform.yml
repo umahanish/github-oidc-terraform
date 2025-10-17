@@ -37,12 +37,13 @@ jobs:
 
       - name: Terraform Init (Reconfigure Backend)
         run: |
-          terraform init -reconfigure \
-            -backend-config="bucket=${{ env.AWS_S3_BUCKET }}" \
-            -backend-config="key=${{ github.event.inputs.environment }}/terraform.tfstate" \
-            -backend-config="region=${{ env.AWS_REGION }}" \
-            -backend-config="dynamodb_table=${{ env.DYNAMODB_TABLE }}" \
-            -backend-config="encrypt=true"
+           terraform init -reconfigure \
+             -backend-config="bucket=${{ env.AWS_S3_BUCKET }}" \
+             -backend-config="key=${{ github.event.inputs.environment }}/terraform.tfstate" \
+             -backend-config="region=${{ env.AWS_REGION }}" \
+             -backend-config="dynamodb_table=${{ env.DYNAMODB_TABLE }}" \
+             -backend-config="encrypt=true"
+
 
       - name: Terraform Plan
         run: |
