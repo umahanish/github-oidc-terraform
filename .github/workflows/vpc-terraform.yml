@@ -1,55 +1,53 @@
-name: Terraform VPC Workflow
+name: Terraform VPC Plan & Apply
 
 on:
-  push:
-    paths:
-      - 'vpc/**'
-      - 'environments/**'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'dev'
 
 jobs:
-  terraform-vpc:
+  terraform:
     name: Terraform VPC
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        shell: bash
-
     env:
-      TF_BUCKET: github-oidc-bucket-terraform
-      TF_STATE_KEY: vpc/dev/terraform.tfstate
-      AWS_REGION: eu-west-2   # default region, can also pass via tfvars
+      AWS_REGION: eu-west-2   # Default region if not in tfvars
 
     steps:
-      - name: Checkout code
+      - name: Checkout Repo
         uses: actions/checkout@v3
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.9.5
-          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
 
-      - name: Configure AWS credentials
+      - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
           role-to-assume: ${{ secrets.AWS_ROLE }}
           aws-region: ${{ env.AWS_REGION }}
+          role-session-name: GitHub-OIDC-VPC
 
-      - name: Terraform Init (VPC)
+      - name: Terraform Init
         run: |
           terraform -chdir=vpc init \
-            -backend-config="bucket=${TF_BUCKET}" \
-            -backend-config="key=${TF_STATE_KEY}" \
-            -backend-config="region=${AWS_REGION}"
+            -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
+            -backend-config="key=vpc/${{ github.event.inputs.environment }}/terraform.tfstate" \
+            -backend-config="region=${{ env.AWS_REGION }}"
 
-      - name: Terraform Plan (VPC)
+      - name: Terraform Plan
         run: |
           terraform -chdir=vpc plan \
             -input=false \
-            -var-file="environments/dev/terraform.tfvars" \
+            -var-file="environments/${{ github.event.inputs.environment }}/terraform.tfvars" \
             -out=tfplan
 
-      - name: Terraform Apply (VPC)
+      - name: Terraform Apply
         if: github.ref == 'refs/heads/main'
         run: |
-          terraform -chdir=vpc apply -input=false tfplan
+          terraform -chdir=vpc apply \
+            -input=false \
+            tfplan
