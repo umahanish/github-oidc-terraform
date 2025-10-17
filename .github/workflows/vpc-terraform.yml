@@ -1,4 +1,4 @@
-name: Terraform VPC Deployment with Backend
+name: Terraform VPC Deployment
 
 on:
   workflow_dispatch:
@@ -18,8 +18,7 @@ permissions:
   contents: read
 
 jobs:
-  terraform:
-    name: Terraform Deploy
+  terraform-vpc:
     runs-on: ubuntu-latest
 
     env:
@@ -39,14 +38,14 @@ jobs:
         with:
           role-to-assume: ${{ env.ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
-          role-session-name: github-actions-terraform
+          role-session-name: github-actions-terraform-vpc
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.9.5
 
-      - name: Terraform Init (Reconfigure Backend)
+      - name: Terraform Init (VPC)
         run: |
           terraform init -reconfigure \
             -backend-config="bucket=${{ env.AWS_S3_BUCKET }}" \
@@ -55,17 +54,15 @@ jobs:
             -backend-config="dynamodb_table=${{ env.DYNAMODB_TABLE }}" \
             -backend-config="encrypt=true"
 
-      - name: Terraform Validate
+      - name: Terraform Validate (VPC)
         run: terraform validate
 
-      - name: Terraform Plan
-        run: |
-          terraform plan -input=false \
-            -var="environment=${{ env.ENVIRONMENT }}" \
-            -var="key_pair_name=${{ env.KEY_PAIR_NAME }}" \
-            -var-file="environments/${{ env.ENVIRONMENT }}/terraform.tfvars" \
-            -out=tfplan
+      - name: Terraform Plan (VPC)
+        run: terraform plan -input=false \
+          -var="environment=${{ env.ENVIRONMENT }}" \
+          -var-file="environments/${{ env.ENVIRONMENT }}/terraform.tfvars" \
+          -out=tfplan
 
-      - name: Terraform Apply
+      - name: Terraform Apply (VPC)
         if: github.event_name == 'workflow_dispatch'
         run: terraform apply -auto-approve -input=false tfplan
