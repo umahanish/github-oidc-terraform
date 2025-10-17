@@ -11,6 +11,8 @@ on:
 env:
   AWS_REGION: ${{ secrets.AWS_REGION }}
   ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+  AWS_S3_BUCKET: ${{ secrets.AWS_BUCKET_NAME }}
+  DYNAMODB_TABLE: ${{ secrets.DYNAMODB_TABLE }}
 
 jobs:
   terraform-vpc:
@@ -33,11 +35,17 @@ jobs:
         with:
           terraform_version: 1.9.5
 
+      # -----------------------------
+      # Clean previous Terraform state
+      # -----------------------------
       - name: Clean Terraform
         working-directory: ./terraform/vpc
         run: rm -rf .terraform
 
-      - name: Terraform Init
+      # -----------------------------
+      # Initialize Backend
+      # -----------------------------
+      - name: Terraform Init (Reconfigure Backend)
         working-directory: ./terraform/vpc
         run: |
           terraform init -reconfigure \
@@ -47,11 +55,36 @@ jobs:
             -backend-config="dynamodb_table=${{ env.DYNAMODB_TABLE }}" \
             -backend-config="encrypt=true"
 
+      # -----------------------------
+      # Optional: Verify S3 backend
+      # -----------------------------
+      - name: Verify S3 backend
+        working-directory: ./terraform/vpc
+        run: |
+          echo "Checking S3 backend state file:"
+          aws s3 ls s3://${{ env.AWS_S3_BUCKET }}/vpc/${{ github.event.inputs.environment }}/terraform.tfstate || echo "⚠️ State file not found"
+
+      # -----------------------------
+      # Select or create workspace
+      # -----------------------------
+      - name: Terraform Workspace
+        working-directory: ./terraform/vpc
+        run: |
+          terraform workspace select ${{ github.event.inputs.environment }} || terraform workspace new ${{ github.event.inputs.environment }}
+
+      # -----------------------------
+      # Terraform Plan
+      # -----------------------------
       - name: Terraform Plan
         working-directory: ./terraform/vpc
         run: |
-          terraform plan -var-file="environments/${{ github.event.inputs.environment }}/terraform.tfvars" -out=tfplan
+          terraform plan -input=false \
+            -var-file="environments/${{ github.event.inputs.environment }}/terraform.tfvars" \
+            -out=tfplan
 
+      # -----------------------------
+      # Terraform Apply
+      # -----------------------------
       - name: Terraform Apply
         working-directory: ./terraform/vpc
-        run: terraform apply -auto-approve tfplan
+        run: terraform apply -auto-approve -input=false tfplan
