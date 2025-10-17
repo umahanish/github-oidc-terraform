@@ -57,11 +57,13 @@ jobs:
       - name: Terraform Validate (VPC)
         run: terraform validate
 
-      - name: Terraform Plan (VPC)
-        run: terraform plan -input=false \
-          -var="environment=${{ env.ENVIRONMENT }}" \
-          -var-file="environments/${{ env.ENVIRONMENT }}/terraform.tfvars" \
-          -out=tfplan
+      - name: Terraform Plan
+        run: |
+          terraform plan \
+            -input=false \
+            -var="environment=dev" \
+            -var-file="environments/dev/terraform.tfvars" \
+            -out=tfplan
 
       - name: Terraform Apply (VPC)
         if: github.event_name == 'workflow_dispatch'
