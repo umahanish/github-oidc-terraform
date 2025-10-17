@@ -19,11 +19,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Step 2: Configure AWS credentials with OIDC
       - name: Configure AWS Credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -31,16 +29,14 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
           role-session-name: github-actions-terraform-vpc
           audience: sts.amazonaws.com
-          id-token: yes   # Needed for OIDC
+          output-env-credentials: true
 
-      # Step 3: Setup Terraform
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.9.5
 
-      # Step 4: Terraform Init (with backend reconfigure)
-      - name: Terraform Init
+      - name: Terraform Init (Reconfigure Backend)
         run: |
           echo "Initializing Terraform backend..."
           terraform init -reconfigure \
@@ -50,13 +46,16 @@ jobs:
             -backend-config="dynamodb_table=${{ env.DYNAMODB_TABLE }}" \
             -backend-config="encrypt=true"
 
-      # Step 5: Terraform Plan
+      - name: Verify Terraform Init
+        run: |
+          echo "Contents of .terraform directory:"
+          ls -R .terraform || echo "No .terraform folder found!"
+
       - name: Terraform Plan
         run: |
           terraform plan -input=false \
             -var="environment=${{ github.event.inputs.environment }}" \
             -out=tfplan
 
-      # Step 6: Terraform Apply
       - name: Terraform Apply
         run: terraform apply -auto-approve -input=false tfplan
