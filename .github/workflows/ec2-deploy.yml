@@ -1,0 +1,56 @@
+name: EC2 Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy (dev/stage/prod)'
+        required: true
+        default: 'dev'
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+  AWS_S3_BUCKET: ${{ secrets.AWS_BUCKET_NAME }}
+  DYNAMODB_TABLE: ${{ secrets.DYNAMODB_TABLE }}
+
+jobs:
+  terraform-ec2:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: github-actions-terraform-ec2
+          audience: sts.amazonaws.com
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.5
+
+      - name: Terraform Init (Reconfigure Backend)
+        run: |
+          terraform init -reconfigure \
+            -backend-config="bucket=${{ env.AWS_S3_BUCKET }}" \
+            -backend-config="key=aws-vpc/${{ github.event.inputs.environment }}/terraform.tfstate" \
+            -backend-config="region=${{ env.AWS_REGION }}" \
+            -backend-config="dynamodb_table=${{ env.DYNAMODB_TABLE }}" \
+            -backend-config="encrypt=true"
+
+      - name: Terraform Plan
+        run: |
+          terraform plan -var="environment=${{ github.event.inputs.environment }}" \
+                         -var="aws_region=${{ env.AWS_REGION }}" \
+                         -var="backend_bucket=${{ env.AWS_S3_BUCKET }}" \
+                         -var="dynamodb_table=${{ env.DYNAMODB_TABLE }}" \
+                         -out=tfplan
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve tfplan
