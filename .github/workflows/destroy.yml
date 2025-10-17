@@ -1,4 +1,4 @@
-name: Terraform VPC Destroy
+name: Terraform VPC Destroy New
 
 on:
   workflow_dispatch:
