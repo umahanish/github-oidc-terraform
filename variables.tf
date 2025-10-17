@@ -1,29 +1,12 @@
-variable "aws_region" {
-  description = "AWS region"
-  type        = string
-}
-
-variable "vpc_cidr" {
-  description = "VPC CIDR"
-  type        = string
-}
-
-variable "public_subnets" {
-  description = "List of public subnet CIDRs"
-  type        = list(string)
-}
-
-variable "private_subnets" {
-  description = "List of private subnet CIDRs"
-  type        = list(string)
-}
-
-variable "availability_zones" {
-  description = "List of availability zones"
-  type        = list(string)
-}
-
+variable "aws_region" { default = "eu-west-2" }
+variable "vpc_cidr" { default = "10.10.0.0/16" }
+variable "public_subnets" { default = ["10.10.1.0/24", "10.10.2.0/24"] }
+variable "private_subnets" { default = ["10.10.101.0/24", "10.10.102.0/24"] }
+variable "availability_zones" { default = ["eu-west-2a", "eu-west-2b"] }
 variable "tags" {
-  description = "Common tags applied to all resources"
-  type        = map(string)
+  default = {
+    Environment = "dev"
+    Project     = "aws-vpc-demo"
+    Owner       = "PlatformTeam"
+  }
 }
