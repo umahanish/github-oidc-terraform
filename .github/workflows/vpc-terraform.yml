@@ -59,7 +59,12 @@ jobs:
         run: terraform validate
 
       - name: Terraform Plan
-        run: terraform plan -input=false -var="environment=dev" -var-file="environments/dev/terraform.tfvars" -out=tfplan
+        run: |
+          terraform plan -input=false \
+            -var="environment=${{ env.ENVIRONMENT }}" \
+            -var="key_pair_name=${{ env.KEY_PAIR_NAME }}" \
+            -var-file="environments/${{ env.ENVIRONMENT }}/terraform.tfvars" \
+            -out=tfplan
 
       - name: Terraform Apply
         if: github.event_name == 'workflow_dispatch'
