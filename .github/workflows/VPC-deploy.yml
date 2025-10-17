@@ -1,38 +1,22 @@
-name: Terraform VPC Deployment
+name: VPC Deploy
 
 on:
-  # push:
-  #   branches:
-  #     - main
-  #     - dev
-  #     - stage 
   workflow_dispatch:
     inputs:
       environment:
-        description: "Select environment to deploy (dev, stage, main)"
+        description: 'Environment to deploy (dev/stage/prod)'
         required: true
-        default: "dev"
-        type: choice
-        options:
-          - dev
-          - stage
-          - main
+        default: 'dev'
 
-permissions:
-  id-token: write
-  contents: read
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+  AWS_S3_BUCKET: ${{ secrets.AWS_BUCKET_NAME }}
+  DYNAMODB_TABLE: ${{ secrets.DYNAMODB_TABLE }}
 
 jobs:
-  terraform:
-    name: Terraform Deploy
+  terraform-vpc:
     runs-on: ubuntu-latest
-
-    env:
-      AWS_REGION: ${{ secrets.AWS_REGION }}
-      ROLE_TO_ASSUME: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-      AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
-      DYNAMODB_TABLE: ${{ secrets.DYNAMODB_TABLE }}
-      ENVIRONMENT: ${{ github.event.inputs.environment || 'dev' }}
 
     steps:
       - name: Checkout repository
@@ -43,7 +27,7 @@ jobs:
         with:
           role-to-assume: ${{ env.ROLE_TO_ASSUME }}
           aws-region: ${{ env.AWS_REGION }}
-          role-session-name: github-actions-terraform
+          role-session-name: github-actions-terraform-vpc
           audience: sts.amazonaws.com
 
       - name: Setup Terraform
@@ -52,23 +36,19 @@ jobs:
           terraform_version: 1.9.5
 
       - name: Terraform Init (Reconfigure Backend)
+        working-directory: ./terraform/vpc
         run: |
-          echo "Using S3 bucket: ${{ env.AWS_S3_BUCKET }}"
           terraform init -reconfigure \
             -backend-config="bucket=${{ env.AWS_S3_BUCKET }}" \
-            -backend-config="key=aws-vpc/${{ env.ENVIRONMENT }}/terraform.tfstate" \
+            -backend-config="key=vpc/${{ github.event.inputs.environment }}/terraform.tfstate" \
             -backend-config="region=${{ env.AWS_REGION }}" \
             -backend-config="dynamodb_table=${{ env.DYNAMODB_TABLE }}" \
             -backend-config="encrypt=true"
 
-      - name: Terraform Workspace
-        run: |
-          terraform workspace list || true
-          terraform workspace select ${{ env.ENVIRONMENT }} || terraform workspace new ${{ env.ENVIRONMENT }}
-
       - name: Terraform Plan
-        run: terraform plan -no-color -input=false -var-file="environments/${{ env.ENVIRONMENT }}/terraform.tfvars"
+        working-directory: ./terraform/vpc
+        run: terraform plan -input=false -var-file="environments/${{ github.event.inputs.environment }}/terraform.tfvars" -out=tfplan
 
       - name: Terraform Apply
-        if: always()
-        run: terraform apply -auto-approve -input=false -var-file="environments/${{ env.ENVIRONMENT }}/terraform.tfvars"
+        working-directory: ./terraform/vpc
+        run: terraform apply -auto-approve -input=false tfplan
