@@ -1,4 +1,4 @@
-name: Terraform VPC Destroy New
+name: VPC Destroy
 
 on:
   workflow_dispatch:
@@ -46,7 +46,7 @@ jobs:
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.9.5
-          
+
       - name: Verify backend S3 state file
         run: |
           echo "Checking S3 backend file:"
