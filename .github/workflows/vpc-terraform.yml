@@ -15,7 +15,7 @@ permissions:
 env:
   AWS_REGION: eu-west-2
   AWS_S3_BUCKET: github-oidc-bucket-terraform
-  DYNAMODB_TABLE: terraform-locks
+  DYNAMODB_TABLE: terraform-lock-table
 
 jobs:
   terraform:
