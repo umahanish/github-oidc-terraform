@@ -46,6 +46,7 @@ jobs:
       - name: Terraform Init (Reconfigure Backend)
         run: |
           echo "Using S3 bucket: ${{ env.AWS_S3_BUCKET }}"
+          echo "Backend key: aws-vpc/${{ github.event.inputs.environment }}/terraform.tfstate"
           terraform init -reconfigure \
             -backend-config="bucket=${{ env.AWS_S3_BUCKET }}" \
             -backend-config="key=aws-vpc/${{ github.event.inputs.environment }}/terraform.tfstate" \
