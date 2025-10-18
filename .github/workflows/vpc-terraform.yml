@@ -64,15 +64,14 @@ jobs:
         run: terraform validate
 
       - name: Terraform Plan
-        working-directory: .
         run: |
           terraform plan -input=false \
             -var="aws_region=${{ env.AWS_REGION }}" \
             -var="vpc_cidr=10.10.0.0/16" \
-            -var='public_subnets=["10.10.1.0/24","10.10.2.0/24"]' \
-            -var='private_subnets=["10.10.101.0/24","10.10.102.0/24"]' \
-            -var='availability_zones=["eu-west-2a","eu-west-2b"]' \
-            -var='tags={Project="aws-vpc-demo",Owner="PlatformTeam"}' \
+            -var="public_subnets=[\"10.10.1.0/24\",\"10.10.2.0/24\"]" \
+            -var="private_subnets=[\"10.10.101.0/24\",\"10.10.102.0/24\"]" \
+            -var="availability_zones=[\"eu-west-2a\",\"eu-west-2b\"]" \
+            -var="tags={Project=\"aws-vpc-demo\",Owner=\"PlatformTeam\"}" \
             -out=tfplan
 
       - name: Terraform Apply
