@@ -31,6 +31,7 @@ jobs:
         with:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          role-session-name: GitHubOIDCSession
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -43,6 +44,7 @@ jobs:
           aws s3 ls s3://$AWS_S3_BUCKET/aws-vpc/${ENVIRONMENT}/terraform.tfstate || echo "⚠️ State file not found in S3"
 
       - name: Terraform Init (Reconfigure Backend)
+        working-directory: .
         run: |
           echo "Using S3 bucket: ${{ env.AWS_S3_BUCKET }}"
           terraform init -reconfigure \
@@ -61,7 +63,7 @@ jobs:
         run: terraform validate
 
       - name: Terraform Plan
-        working-directory: ./terraform
+        working-directory: .
         run: |
           terraform plan -input=false \
             -var="aws_region=${{ env.AWS_REGION }}" \
